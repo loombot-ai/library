@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>tally — a loom app</title>
+    <!--
+      The MODEL-FACING example of a loom app page. Two things about it are worth copying:
+
+      1. It is ONE request and no socket. The page is served by loombot at /a/<id>/app/<name>/ out of the
+         bytes its MCP server registered, and everything it says or is told goes to that same path +
+         "__event": one `POST`, answered by the frame it draws. No ?player: the browser presents the
+         signed session cookie it already has, and the ?player token is the PLAYER's alone (the MCP
+         server is handed it at registration, out of reach of any page).
+      2. Everything visible is rendered from one "state" action, so a reload and a click go through the
+         same code path. A page with two ways to draw itself has two ways to be wrong.
+    -->
+    <!--
+      LOOMBOT'S PALETTE, in one line: the daemon serves its own variables at /theme.css (loombot/theme.ts) and
+      every colour below is one of them. An app that writes its own hex codes, or asks the browser which
+      theme it is in, will sometimes disagree with the panel around it — that is a measured bug, not a
+      hypothetical one (see the file-viewer entry and tests/app_viewer_test.ts). Link, spend variables, and
+      the app cannot disagree.
+    -->
+    <!--
+      THE SHAPE OF THIS FOLDER IS THE SHAPE OF A LOOM APP, and this page is copied with it (card
+      t20261109-233649-9f35): src/ is HAND-WRITTEN (this file, app.js, tally.css), assets/ is ONLY what
+      `deno task build` writes and is what the app registers (`--dir assets`), and rules.ts sits at the top
+      because a .ts is never handed to a browser. example-ttt/ states the same shape at length.
+    -->
+    <link rel="stylesheet" href="/theme.css" />
+    <link rel="stylesheet" href="tally.css" />
+  </head>
+  <body>
+    <h1>tally</h1>
+    <p>
+    A counter with a validated limit. <strong>The limit is enforced here, instantly</strong> —
+    raising it is a judgement, and that one goes to the agent.
+  </p>
+
+    <div id="count">0</div>
+    <p>
+      <button id="down">−1</button>
+      <button id="up">+1</button>
+      <button id="reset">reset</button>
+      <span id="limit"></span>
+    </p>
+    <p id="note"></p>
+
+    <fieldset>
+      <legend>ask the agent for a higher limit</legend>
+      <p>
+        <label>new limit <input id="to" type="number" value="25" min="1" size="4" /></label>
+        <label>why <input id="why" type="text" size="24" placeholder="because…" /></label>
+        <button id="ask">ask</button>
+      </p>
+      <p id="verdict"></p>
+    </fieldset>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- A PHONE NEEDS THIS LINE OR IT LAYS THE PAGE OUT AT 980 px. Without it, a mobile browser uses its
+         default 980 px layout viewport and SCALES the page down to fit, so every `max-width` in here binds
+         against 980 rather than against the screen (reported 2026-09-30: 46rem of prose with big margins
+         on both sides, and everything small), and every `@media` below is evaluated against 980 too —
+         which quietly made the phone rule for `.md` dead on a real phone. Same line loombot's own page
+         carries (loombot/web.ts). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>viewer — a loom app</title>
+    <!--
+      THE PAGE SHOWS A FILE, AND EDITS IT IN PLACE — and it has no idea what a filesystem is.
+
+      Everything it shows arrived from the MCP server: a text file in the answer to this page's own
+      request (with its hash, and for markdown its rendering), a PDF or an image as a registered asset. There is no path parameter
+      here and no way to talk this tab into showing, or saving, a file the agent did not show.
+
+      VIEW mode is the default: #md takes rendered markdown, #editor is CodeMirror READ-ONLY for source,
+      the <iframe> takes a PDF and the <img> a picture. EDIT (text only, and only if the server says the
+      file is editable) makes the same CodeMirror editable — for markdown it replaces the rendering with
+      the source. CodeMirror (src/code.js -> assets/code.js, plus codemirror.js) is imported only when a text file is shown.
+    -->
+    <!--
+      THE PALETTE IS LOOMBOT'S, and this is the whole of how an app gets it: one link element, served by the
+      daemon at /theme.css out of loombot/theme.ts. Same origin as this page's own assets, so it works both
+      inside the panel's iframe and in a standalone tab opened from the URL show() hands back.
+
+      DO NOT ADD A palette, a hex code, or a media query that asks the browser which theme it is in. This
+      page had all three, with
+      light as its default while loombot's default is dark, and the two disagreed the first time a human
+      looked at them together: Firefox tells a framed document that its preferred scheme is the EMBEDDER'S
+      used scheme, so the frame went dark inside a light panel. An app that guesses will sometimes guess
+      differently from the panel around it; a variable it INHERITS cannot. tests/app_viewer_test.ts fails
+      if a palette comes back here, and fails if loombot renames a variable this page uses.
+    -->
+    <link rel="stylesheet" href="/theme.css" />
+    <link rel="stylesheet" href="viewer.css" />
+  </head>
+  <body>
+    <header>
+      <!--
+        THE HEADER IS THE TITLE + THE PATH + ONE MENU BUTTON, and the status sits on the row under it (card
+        t20261020-181818-5573). FOUR BUTTONS WERE TOO MANY: they are one menu now, and the look of its panel
+        is shared/theme.ts's `.loom-menu` rather than a fifth copy of a button face — the same discipline
+        `.loom-icons` already has. The disclosure is NATIVE (`<details>`/`<summary>`): this page writes no
+        menu logic, and the only thing that opens or closes it is the browser.
+      -->
+      <span id="head1">
+        <span id="mark"></span>
+        <span id="title"></span>
+        <span id="path">viewer</span>
+        <span id="actions" class="loom-icons">
+          <details id="menu" class="loom-menu">
+            <summary class="loom-icon" aria-label="Menu" title="Menu">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M4 7h16" />
+                <path d="M4 12h16" />
+                <path d="M4 17h16" />
+              </svg>
+            </summary>
+            <!-- ONE BORDER ON THE PANEL, PLAIN ROWS INSIDE IT (theme.ts, `.loom-menu-panel`): every one of
+                 them is here ALWAYS and is DISABLED when it cannot act, because inside a closed menu the
+                 absence of an item cannot be the sentence it used to be. -->
+            <div class="loom-menu-panel" role="menu">
+              <!-- BACK AND DOWNLOAD ARE THE CARD'S TWO ROWS (card t20261028-002834-882a) and they follow
+                   this panel's one rule: PRESENT ALWAYS, DISABLED when they cannot act. Download is what
+                   "offered when the current frame is downloadable" means here — the absence of a row
+                   inside a closed menu cannot be the sentence, so the row is there and dim, and the
+                   sentence in the reading area says what it is for. -->
+              <button type="button" id="back" role="menuitem" disabled
+                title="Back to where you were before this view">Back</button>
+              <button type="button" id="refresh" role="menuitem"
+                title="Read what is on show from disk again">Refresh</button>
+              <button type="button" id="edit" role="menuitem"
+                title="Edit this file here">Edit</button>
+              <button type="button" id="download" role="menuitem" disabled
+                title="Download this file">Download</button>
+              <button type="button" id="close" role="menuitem"
+                title="Close the viewer: its tab goes and its agent is told">Close</button>
+            </div>
+          </details>
+          <button type="button" id="save"
+            title="Save and return to the view (Cmd/Ctrl-S saves and keeps editing)">Save</button>
+          <button type="button" id="cancel" title="Leave edit mode without saving">Cancel</button>
+        </span>
+      </span>
+      <!--
+        THE META GROUP, the row under the title: THE CRUMB first, then the status and the no-edit reason. ONE
+        container (2026-10-01): as loose spans each took a row of its own on a phone. The type/size/lines row
+        that used to lead it went on 2026-10-29 and the crumb took the slot, so the header is two rows. It is
+        a div because it now holds a <nav>, which a <span> may not.
+      -->
+      <div id="meta">
+        <nav id="crumb" aria-label="the folders this view sits in"></nav>
+        <span id="status"></span>
+        <span id="noedit"></span>
+      </div>
+    </header>
+
+    <div id="bar" role="alert"></div>
+    <div id="notice"></div>
+    <main>
+      <div id="view" class="empty">
+        Nothing shown yet — ask loom to show you a file or a folder (it calls <code>show({path})</code>).
+      </div>
+      <div id="editor"></div>
+      <!-- THE LISTING (the folder view): rebuilt whole on every frame that carries one, the way the file
+           view is — head, rows, and the server's own sentences where entries are missing. -->
+      <section id="list" aria-label="the folder"></section>
+      <iframe id="pdf" title="the PDF"></iframe>
+      <img id="img" alt="" />
+    </main>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

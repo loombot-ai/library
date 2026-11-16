@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- A PHONE NEEDS THIS OR IT LAYS THE PAGE OUT AT 980 px AND SCALES IT DOWN, so every width rule
+         below is evaluated against 980 and none of them fires (the viewer had the same hole). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>task board</title>
+    <!--
+      THE TASK BOARD's page: every record on a board, grouped by state, searchable, and clickable through
+      to the detail a brief is made from. It is READ-ONLY in this version — claiming a task and changing
+      its state go through the agent, which is the half that decides — so this page draws buttons for
+      reading (Refresh, an icon) and for asking the app to end (Close, an icon) and nothing that writes.
+      A durable board (this one) declines that ask: the page detaches, and the server stays.
+
+      Five things worth knowing about it:
+
+        1. It draws NOTHING from a file. Every byte it shows arrives as one of THREE actions from
+           rules.ts, which reads the board with tasks.ts — one parser, and no second implementation of
+           the record format anywhere in a browser. This page has no path, and its only request is its
+           own `__event`:
+             board   a ROW per record — id, title, state, tags, owner, worktree, updated. The only
+                     thing that travels unasked, and it carries no card's body (card
+                     t20261024-052218-0bb3: on a 259-card board that frame was 1,977,123 bytes, 93.8%
+                     of it text nobody had opened).
+             card    ONE whole card, asked for when somebody opens it, rendered beside its own words.
+             search  the IDS a query matched, asked for as it is typed — the filter still reaches the
+                     BODY, which is on the app's side of the wire, so this page never holds a corpus.
+        2. It keeps no index and caches nothing. `board/` is the only store: Refresh re-reads it, and a
+           reload starts from the same place.
+        3. The grouping is `<details>`, so "open (12)" is expanded and the older states are one click
+           away with no JavaScript of ours involved at all.
+        4. ONE CARD HAS AN ADDRESS OF ITS OWN: `?id=<card>` (or `#<card>`) opens that card, and the
+           address is kept in step with the selection. It is the one fact this page writes back — read
+           "the address" in app.js for what writing an address inside this frame is allowed to be, and for
+           the ASSIGNMENT to `location` that is not it (that one reloads the document and loses the board).
+        5. IT SAYS SO WHEN ITS ONE REQUEST FAILS, because a request that never landed is NOT an empty
+           board. The header carries the channel's own line (#channel) and the list carries the reason in
+           the place the cards would be; a failure is retried by the page itself, on a ladder of its own
+           (`online` and a returning tab start it again). Read "the channel, and what the page says while
+           it cannot reach the app" in app.js for the four states — measured on a phone, where the page
+           once drew its chrome and NOTHING under it.
+
+      LOOMBOT'S PALETTE, in one line: the daemon serves its own variables at /theme.css (loombot/theme.ts).
+      An app that writes its own hex codes, or asks the browser which theme it is in, will sometimes
+      disagree with the panel around it — that is a measured bug, not a hypothetical one. Link, spend
+      variables, and the app cannot disagree.
+    -->
+    <!--
+      THIS PAGE'S OWN RULES ARE board.css BESIDE IT, not a <style> block (card t20261109-233649-9f35): src/ is
+      hand-written, assets/ is what `deno task build` writes, and the page links what the build produced.
+      board_mcp.ts hands loombot assets/, so what a browser gets is exactly what a build made.
+    -->
+    <link rel="stylesheet" href="/theme.css" />
+    <link rel="stylesheet" href="board.css" />
+  </head>
+  <body>
+    <header>
+      <div class="bar top">
+        <h1>Tasks</h1>
+        <div class="icons loom-icons">
+          <!-- ONE MENU, THE SAME TREATMENT THE VIEWER'S HEADER GOT (card t20261020-181818-5573): two buttons
+               became one, and the panel's look is shared/theme.ts's `.loom-menu` — one border on the panel,
+               plain rows inside it, hover as the affordance. The disclosure is NATIVE, so this page writes no
+               menu logic; it closes the panel when an item is picked, which is state and not a component.
+               Why it is not a toggle: the same reason the viewer's -- four buttons is too many, and one menu
+               is simpler to look at. -->
+          <details id="menu" class="loom-menu">
+            <summary class="loom-icon" aria-label="Menu" title="Menu">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M4 7h16" />
+                <path d="M4 12h16" />
+                <path d="M4 17h16" />
+              </svg>
+            </summary>
+            <div class="loom-menu-panel" role="menu">
+              <button type="button" id="refresh" role="menuitem" title="Refresh">Refresh</button>
+              <button type="button" id="close" role="menuitem" title="Close">Close</button>
+            </div>
+          </details>
+        </div>
+      </div>
+      <div id="count"></div>
+      <div class="bar" style="margin-top: 0.4rem">
+        <input
+          id="q"
+          type="search"
+          autocomplete="off"
+          placeholder="search id, title and body…"
+          aria-label="search id, title and body"
+        />
+        <button id="back" class="back" hidden>← all tasks</button>
+      </div>
+      <!-- THE CHANNEL, BEFORE THE NOTE AND HIDDEN WHENEVER IT IS OPEN: while the app is not answering this
+           is the line that says why, in the panel's own voice, and the list repeats it where the cards
+           would be. app.js's "the channel, and what the page says while it cannot reach the app" has the
+           four states. -->
+      <p id="channel" hidden></p>
+      <p id="note"></p>
+      <!-- THE ADDRESS OF THIS PAGE, which is also the address of the card that is showing: filled by
+           app.js from `location`, and TEXT rather than anything clickable — it is a thing to copy. A person
+           in loombot's panel has no other way to get it: the app runs in a frame, and a frame has no address
+           bar. -->
+      <p id="addr"></p>
+    </header>
+    <main id="list"></main>
+    <section id="detail" hidden></section>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

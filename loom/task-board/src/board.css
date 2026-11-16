@@ -1,0 +1,386 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  background: var(--bg, Canvas);
+  color: var(--fg, CanvasText);
+  font: 15px/1.5 system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+/* THE HEADER IS THE ONLY THING ON SCREEN THAT DOES NOT MOVE, and it holds the two controls a
+   reader needs at every scroll position: the search box and Refresh. Sticky rather than fixed, so
+   nothing has to reserve its height. */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg, Canvas);
+  border-bottom: 1px solid var(--line);
+  padding: 0.6rem 0.9rem 0.5rem;
+}
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+h1 {
+  font-size: 1rem;
+  margin: 0;
+  font-weight: 600;
+}
+/* THE HEADING ROW: "Tasks" on the left, the two icon buttons pushed to the right edge. The heading
+   takes the slack (flex: 1) so the icons stay at the edge whatever the title's width. */
+.top h1 {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* THE STRIP'S OWN SPACING IS NOT HERE: display:flex and the gap between the two buttons come from
+   .loom-icons, in loombot/theme.ts (linked above). It used to be a declaration on this page -- as it was
+   on the viewer's, with a DIFFERENT number (0.4rem), which is how two buttons of the same size came to
+   sit in two strips that were visibly not the same strip (reported 2026-10-09, measured in a real
+   browser). What is left is the one thing the BOARD decides about its own strip: it does not grow --
+   the heading above it takes the slack. The Close button — a page's ask to end the app, which a
+   durable board declines — is still why the pair is not flush, and still the reason the number is
+   what it is; that reason now lives beside the number. */
+.icons {
+  flex: none;
+}
+/* THE TWO GREY LINES (counts, and what-was-read-from-where) ARE ONE LINE EACH: they truncate with an
+   ellipsis rather than wrap, and the full text is in their title attribute (long-press / hover).
+   They are block children of the header, whose width is the viewport's, so the ellipsis can engage;
+   min-width: 0 keeps that true if the parent is ever made a flex or grid container. */
+#count,
+#note,
+#addr {
+  display: block;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#count {
+  color: var(--dim);
+  font-size: 0.8125rem;
+  margin: 0.1rem 0 0;
+}
+/* **THE BOX A THUMB TYPES IN IS 16px, AND THAT IS THE iOS RULE RATHER THAN A TASTE** (2026-10-09): Safari
+   on iOS zooms a focused form control whose font-size is below 16px and does NOT restore the scale when
+   focus leaves, so on a phone the whole page zoomed on the one control this page is asked to use
+   (web_shell_css.ts carries the argument, and the shell's own fields all answer it). `font: inherit` --
+   what this rule said until then -- put the box at this page's own base, 15px, because the box sets no
+   size of its own. `--fs-body` IS that 16px (loombot/theme.ts: one of the three audited sizes, 'what you
+   read and TYPE'), and this page already links /theme.css: the name is spent here rather than the number
+   written again. Measured in Chrome on the served page: 15px before, 16px after, at 390x844 and at
+   1400x900 (tests/app_input_size_test.ts holds the rule). */
+#q {
+  flex: 1 1 100%;
+  min-width: 0;
+  font: inherit;
+  /* AFTER the shorthand, which would otherwise put the size straight back to the page's own. */
+  font-size: var(--fs-body);
+  color: var(--fg, CanvasText);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+}
+button {
+  font: inherit;
+  color: var(--fg, CanvasText);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+}
+#note {
+  margin: 0.4rem 0 0;
+  min-height: 1.2rem;
+  line-height: 1.2rem;
+  font-size: 0.8125rem;
+  color: var(--dim);
+}
+#note.bad {
+  color: var(--danger-fg);
+}
+/* THE CHANNEL'S OWN LINE, and it is the one line on this page that says why the list below is empty.
+   HIDDEN the whole time the app is answering — the note says what was read then, and a channel
+   saying nothing is the healthy case's signature. SEVERAL LINES RATHER THAN ONE, and NO `display`
+   DECLARATION AT ALL: #count/#note/#addr above carry `display: block`, and an author display beats the
+   user agent's own [hidden] rule whatever the specificity — a hidden line that still lays out is the
+   exact trap tests/hidden_attribute_pages_test.ts measured on this page. This one wins by NOT being in
+   that group, so `hidden` is left to the UA rule alone.
+
+   It is red for the states a person has to act on (a request that failed and is being retried, and an
+   app that is over) and dim while the page is merely connecting on its own. */
+#channel {
+  margin: 0.4rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  color: var(--dim);
+  overflow-wrap: anywhere;
+}
+#channel.bad {
+  color: var(--danger-fg);
+}
+/* AND THE SAME WORDS WHERE THE CARDS WOULD BE: a list with nothing in it because nothing has been read
+   must not look like a board with nothing on it, so the reason is drawn in the list's own place and is
+   red when it is a fault rather than a moment. It wraps: this is a sentence to read, not a row's facts
+   line to truncate. */
+#list .meta.bad {
+  color: var(--danger-fg);
+}
+/* THE ADDRESS IS QUIETER THAN THE TWO LINES ABOVE IT: it is always there and rarely read, and it is a
+   copy target rather than a report of what just happened. */
+#addr {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+  color: var(--dim);
+}
+/* ONE COLUMN AT EVERY WIDTH. A board row is a title, a couple of labels and a line of facts; the
+   panel is a phone half the time, and a table that reflows is a table whose columns are a lie
+   about the data. */
+main,
+#detail {
+  padding: 0.6rem 0.9rem 3rem;
+}
+details.group {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 0.5rem 0;
+  background: var(--panel);
+  overflow: hidden;
+}
+details.group > summary {
+  cursor: pointer;
+  padding: 0.5rem 0.7rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  user-select: none;
+}
+summary .n {
+  color: var(--dim);
+  font-weight: 400;
+}
+.row {
+  padding: 0.5rem 0.7rem;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  /* A ROW IS A CONTROL, not selectable text: iOS withholds the click on a tap that lands on
+     selectable text (measured on the phone, 2026-10-27). The pointerup fallback stays as the belt. */
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+.row:hover,
+.row:focus-visible {
+  background: var(--bg, Canvas);
+  outline: none;
+}
+.rowtop {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.title {
+  flex: 1 1 12rem;
+  min-width: 0;
+  overflow-wrap: anywhere; /* a long unbroken word breaks inside the row instead of running off it */
+}
+.meta {
+  color: var(--dim);
+  font-size: 0.8125rem;
+  margin-top: 0.15rem;
+  word-break: break-word;
+}
+/* A ROW'S FACTS ARE ONE LINE, cut with an ellipsis when they do not fit; the id comes first in the
+   text, so it is the last thing to go, and the full line is in the row meta's title (long-press). */
+.row .meta {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+/* TAGS, ON EVERY ROW AND IN THE DETAIL: a chip per tag, in the code colour, because a tag is a
+   label somebody typed and not prose. */
+.chips {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+.tag {
+  font: 0.75rem/1.4 ui-monospace, monospace;
+  color: var(--str);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  white-space: nowrap;
+}
+.pill {
+  font-size: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  color: var(--dim);
+}
+.pill.open,
+.pill.claimed {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+#detail h2 {
+  overflow-wrap: anywhere;
+  font-size: 1.05rem;
+  margin: 0.6rem 0 0.4rem;
+}
+#detail dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.1rem 0.6rem;
+  margin: 0.6rem 0 0;
+  font-size: 0.8125rem;
+}
+#detail dt {
+  color: var(--dim);
+}
+#detail dd {
+  margin: 0;
+  word-break: break-word;
+}
+#detail h3 {
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dim);
+  margin: 1.1rem 0 0.3rem;
+}
+/* THE BODY IS MARKDOWN AND IS SHOWN AS IT IS WRITTEN: a criterion can hold its own line breaks,
+   a nested list, even a "## " line, and the record's grammar is what keeps those apart. `pre-wrap`
+   is what makes it arrive on screen the way the file has it, without a renderer that could
+   disagree with the file. */
+.body {
+  white-space: pre-wrap;
+  margin: 0;
+  font: inherit;
+}
+/* A FIELD THE SERVER RENDERED ARRIVES AS HTML (rules.ts -> file-viewer/render.ts), so its container
+   stops being PRE-WRAPPED TEXT and the blocks the renderer emits bring their own spacing. The two
+   classes are one decision: `body` alone is still the record's own text, drawn exactly as this page
+   drew it before there was anything to inject, and `.markdown` is the rendered half beside it. */
+#detail .markdown {
+  white-space: normal;
+}
+#detail ul.acceptance li.markdown {
+  white-space: normal;
+}
+#detail .markdown > :first-child {
+  margin-top: 0;
+}
+#detail .markdown > :last-child {
+  margin-bottom: 0;
+}
+#detail .markdown p {
+  margin: 0 0 0.5rem;
+}
+#detail .markdown ul,
+#detail .markdown ol {
+  margin: 0.2rem 0 0.5rem;
+  padding-left: 1.2rem;
+}
+#detail .markdown li {
+  margin: 0 0 0.2rem;
+}
+/* A HEADING A RECORD WROTE IS A HEADING, not this page's uppercase section label: #detail h3 styles
+   `WHY` and `ACCEPTANCE CRITERIA`, and the same tag inside a rendered field must not inherit it. */
+#detail .markdown h1,
+#detail .markdown h2,
+#detail .markdown h3,
+#detail .markdown h4,
+#detail .markdown h5,
+#detail .markdown h6 {
+  font-size: 1rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: inherit;
+  margin: 0.7rem 0 0.3rem;
+}
+/* CODE, A FENCE, A QUOTE AND A TABLE ARE THINGS A RECORD CAN WRITE, so they are drawn as what they
+   are — the code colour for code, a rule down the side of a quote — and no anchor blue anywhere: a
+   rendered link carries no href, so none of them is something to press. */
+#detail .markdown code {
+  font: 0.8125rem/1.5 ui-monospace, monospace;
+  color: var(--str);
+}
+#detail .markdown pre.fence {
+  margin: 0 0 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.25rem;
+  overflow-x: auto;
+}
+#detail .markdown pre.fence code {
+  font-size: 0.75rem;
+  color: inherit;
+}
+#detail .markdown blockquote {
+  margin: 0 0 0.5rem;
+  padding-left: 0.7rem;
+  border-left: 2px solid var(--line);
+  color: var(--dim);
+}
+#detail .markdown a[data-href] {
+  color: inherit;
+  text-decoration: underline dotted;
+}
+#detail .markdown table {
+  border-collapse: collapse;
+  margin: 0 0 0.5rem;
+}
+#detail .markdown th,
+#detail .markdown td {
+  border: 1px solid var(--line);
+  padding: 0.1rem 0.4rem;
+  text-align: left;
+}
+#detail ul.acceptance {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+#detail ul.acceptance li {
+  white-space: pre-wrap;
+  margin: 0 0 0.3rem;
+}
+.links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.links li {
+  margin: 0 0 0.2rem;
+  word-break: break-all;
+}
+/* A CARD ID IS NOT A LINK EITHER: it is a button that opens the task HERE, so it is drawn as the
+   thing it is — body text with a dotted underline, and none of the anchor blue, which would promise
+   a navigation this frame cannot come back from. */
+.links button.link {
+  font: inherit;
+  color: var(--str);
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+.links code {
+  color: var(--dim);
+}
+.back {
+  margin-bottom: 0.2rem;
+}
+.dead {
+  opacity: 0.45;
+}

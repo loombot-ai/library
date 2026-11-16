@@ -1,0 +1,25 @@
+{
+  "tasks": {
+    "build": {
+      "description": "Build the viewer's page: src/ and vendor/ into assets/ (esbuild, minified), printing the size table and asserting that the artifact really was minified. What it writes is what viewer_mcp.ts registers, so assets/ is the ONLY thing this task touches; a second run writes nothing (git status clean).",
+      "command": "deno run -A --config ../../../deno.json build.ts"
+    }
+  },
+  "fmt": {
+    "lineWidth": 100,
+    "proseWrap": "preserve",
+    "exclude": [
+      "assets/",
+      "vendor/codemirror.js"
+    ]
+  },
+  "lint": {
+    "exclude": [
+      "assets/",
+      "vendor/codemirror.js"
+    ]
+  },
+  "imports": {
+    "@std/path": "jsr:@std/path@^1"
+  }
+}

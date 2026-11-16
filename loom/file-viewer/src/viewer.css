@@ -1,0 +1,548 @@
+/* Every colour below is one of loombot's published variables (loombot/theme.ts). The fallbacks on body are
+   the system colours, so an app page that somehow loads without the stylesheet is a plain readable
+   document rather than black on black. */
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg, Canvas);
+  color: var(--fg, CanvasText);
+  font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+/* A size container, for the narrow-header rule below: the panel is a slice of the window. */
+header {
+  container-type: inline-size;
+  /* **THE HEADER IS A STACKING CONTEXT, AND THE MENU'S PANEL DEPENDS ON BEING ONE** (card
+     t20261105-225359-8b14, the owner's phone, 2026-11-08: `下拉菜单还是被盖住了` - the menu opening OVER a
+     .ts file was COVERED by the code column, with `Back` half-visible under its text).
+     MEASURED in real Chrome at 390x844 and 1280x800 with render.ts on show: EVERY row of the open panel
+     failed `document.elementFromPoint` at its own centre - the hit was a `div.cm-line` - because
+     CodeMirror's editor is a POSITIONED box (position:relative, z-index auto) LATER IN DOCUMENT ORDER than
+     this header, while shared/theme.ts gives .loom-menu-panel a position and deliberately NO z-index. The
+     theme's own comment assumes "an app page it is inside a positioned header, which is the stacking
+     context that keeps it on top there" - this header was NOT positioned, so the assumption was false
+     here and nothing caught it. The board's header has carried `position: sticky; z-index: 2` from the
+     day it was written, which is why the same menu is fine there.
+     THE NUMBER BELONGS TO THE HEADER, NOT TO THE PANEL: every control in this header, and any menu it
+     grows later, is then above the document, and the panel keeps the theme's no-z-index rule (loombot's
+     page asserts that policy over its own sheet). `relative` rather than the board's `sticky`, because
+     this header scrolls away with the reading area on purpose, and 1 is enough: nothing else on this page
+     is a stacking context. */
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg, Canvas);
+  border-bottom: 1px solid var(--line);
+}
+/* THE FIRST ROW IS THE TITLE + THE PATH + THE ONE MENU BUTTON, and it takes the whole first line:
+   `flex: 1 0 100%` is what puts the meta group UNDER it at EVERY width (asked for 2026-10-09, when the
+   narrow-container rule alone was not enough and a panel a little wider than 32rem put it beside the
+   name instead). The name and the path are two spans rather than one string: THE TITLE is what the file
+   is called and THE PATH is where it sits, and a deep path cut at the left still leaves the title
+   readable -- which is the same reason the path is cut at the start. */
+#head1 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  flex: 1 0 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+#title {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* THE PATH IS ONE LINE, CUT AT THE LEFT (asked for 2026-10-01): a path's TAIL is what names the file, so
+   the ellipsis belongs at the start. direction:rtl is what puts it there -- the line is laid out from the
+   right, so what overflows is the left, and text-overflow draws on the overflow side -- while
+   text-align:left keeps a SHORT path at the left edge, where it has always been. The characters keep
+   their order: a path is one LTR run, and a run is reordered on the line, never reversed inside. It is
+   the span that grows AND the span that gives way (`flex: 1 1 0`), so a long path can never push the one
+   menu button off the row. */
+#path {
+  flex: 1 1 0;
+  min-width: 0;
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+
+/* THE META GROUP IS THE CRUMB'S ROW (2026-10-29): the chain from the app's root to the folder on show
+   leads it, and the status and the no-edit reason follow. It took the slot the type/size/lines row held,
+   which is why the header is two rows and not three. Its floor is its min-content (min-width left at
+   auto), so a row too narrow for it puts it UNDER the path, not in a thin column (2026-10-01); the
+   crumb's own zero floor (below) is what keeps that floor small. Basis 0 keeps the wrapping status out
+   of that; then it grows. */
+#meta {
+  display: flex;
+  flex-wrap: wrap;
+  /* LEFT, under the name it belongs to: it used to be right-aligned because it shared the name's row. */
+  justify-content: flex-start;
+  align-items: baseline;
+  gap: 0.1rem 0.75rem;
+  flex: 1 1 0;
+}
+/* A NARROW header gives #meta NO MIN-WIDTH FLOOR, because a floor is what leaves that row unable to fit
+   it. Measured 2026-10-15 in real Chrome at 390x844 (the header's content box is 366px): a 26ch floor is
+   219.146px at this page's 14px Menlo, and the flex line-breaker charges the WHOLE ROW for it -- floor +
+   buttons + the 12px gap. That is 219.146 + 144 + 12 = 375.15 in view (over 366) and 219.146 + 190.67 +
+   12 = 421.82 in edit (over 366), so #actions was pushed onto a row of ITS OWN: three header rows,
+   113.16px against 85.08px, and the status line under the meta group made it four at 136.44px.
+   readonly (buttons 92px, 323.15) still fitted, which is why calibrating the floor on Edit + Close
+   alone made it look right. #meta is flex: 1 1 0, so with no floor it takes what the row has left
+   (366 - 12 - 190.67 = 163.33px in the edit cell). The floor on a WIDE header is the rule above,
+   min-width left at auto, and it is untouched. */
+@container (max-width: 32rem) {
+  #meta {
+    min-width: 0;
+  }
+}
+/* An EMPTY header span (no status, nothing unsaved) takes no gap: each one cost 0.75rem
+   and, measured at 390x844, the dirty edit header wrapped to a third row for it. The meta group's own
+   spans are one level deeper since 2026-10-01, so the rule names both -- and `#head1` is the third
+   level, where the unsaved marker lives now that the title row is one group. */
+header > span:empty,
+#head1 > span:empty,
+#meta > span:empty {
+  display: none;
+}
+
+/* THE STRIP, and in VIEW MODE IT HOLDS EXACTLY ONE THING: the menu button. Save and Cancel take its
+   place while editing, which is the one mode rule that survived the header's rebuild -- the menu is not
+   on screen then at all, so nothing about it can be disabled-looking while somebody is typing.
+
+   THE GAP IS NOT HERE: display:flex and the space between the buttons come from .loom-icons, in
+   shared/theme.ts. This page carried "gap: 0.4rem" while the board carried "gap: 0.75rem" for the same
+   strip -- 6.4px against 12px, reported 2026-10-09 and measured in a real browser on both pages -- the
+   same drift the button's own radius had before that was collected. What is left is this page's own
+   LAYOUT: margin-left:auto is how THIS header reaches the right edge (the board does it with a heading
+   that takes the slack), and it is auto rather than a number because auto is ALIGNMENT: a number here
+   would be spacing nothing would ever look at again (the line loombot's own spacing audit draws for its
+   sheets). */
+#actions {
+  margin-left: auto;
+  flex: 0 0 auto;
+  align-self: center;
+}
+/* THE UNSAVED MARKER: a dot beside the title, in loombot's notice colour. The tab title carries a star. */
+#mark {
+  color: var(--notice);
+  flex: 0 0 1ch;
+}
+body.dirty #title::after {
+  content: " (unsaved)";
+  font-weight: 400;
+  color: var(--notice);
+}
+
+#status {
+  color: var(--dim);
+}
+#status.ok {
+  color: var(--ok);
+}
+#status.warn {
+  color: var(--notice);
+}
+#status.bad {
+  color: var(--danger-fg);
+}
+/* WHY THE EDIT ITEM IS DISABLED, and it is ALWAYS here when there is a reason: too big, not UTF-8, or
+   shown `readonly` by the agent. It used NOT to say the read-only case ("no Edit button says that",
+   2026-10-01) -- but the button is inside a CLOSED menu now, where nothing is visible, so the absence of
+   an item cannot be the sentence any more and this line carries it instead (card
+   t20261020-181818-5573, and `draw` in app.js no longer drops it for a readonly show). */
+#noedit {
+  color: var(--dim);
+  font-size: 12px;
+}
+/* THE MODE BUTTONS. VIEW mode is the menu and nothing else: Back, Refresh, Edit and Close are its four
+   rows, each DISABLED rather than absent when it cannot act (theme.ts, `.loom-menu-panel`). EDIT mode is
+   Save and Cancel and no menu at all (Xiaohu, 2026-09-29: the edit header was too busy), which is also
+   why a dirty buffer is never on screen with Close (app.js closeViewer). */
+header button,
+#bar button {
+  font: inherit;
+  color: var(--fg);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.15rem 0.6rem;
+  cursor: pointer;
+}
+
+header button:hover,
+#bar button:hover {
+  border-color: var(--line-hover);
+}
+#save,
+#cancel {
+  display: none;
+}
+/* THE MENU IS VIEW MODE'S ONLY CONTROL (the four rows inside it are always in the DOM, and DISABLED
+   rather than hidden when they cannot act), and Save/Cancel REPLACE it while editing. The menu is not
+   on screen in edit mode at all, so no row of it can look available while somebody is typing. */
+body.editing #menu {
+  display: none;
+}
+body.editing #save,
+body.editing #cancel {
+  display: inline-block;
+}
+
+/* A QUESTION the page is asking — the conflict, a restorable draft, a discard. Inline, because the
+   panel frame cannot show a dialog (its sandbox has no allow-modals), and never answered for you. */
+#bar {
+  display: none;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0.4rem 0.75rem;
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  border-bottom: 1px solid var(--line);
+}
+#bar.on {
+  display: flex;
+}
+#bar span {
+  flex: 1 1 20rem;
+}
+/* THE BAND A FRAME'S OWN SENTENCE ABOUT THE FILE GOES TO — a file this viewer cannot render says so
+   here, in the server's words (it was the truncation banner until 2026-10-28; the band is the same and
+   it is now the ONLY thing that uses it). loombot's own word for this colour is --notice, and it is
+   themed there, which is why there is no second rule for dark here any more. */
+#notice {
+  display: none;
+  padding: 0.4rem 0.75rem;
+  background: var(--panel);
+  color: var(--notice);
+  border-bottom: 1px solid var(--line);
+}
+#notice.on {
+  display: block;
+}
+/* The panel's PDF caveat. Dim and one line: it is a fact about the BROWSER, not about the file, so it
+   must not read as loudly as the notice band above it. */
+#hint {
+  display: none;
+  padding: 0.4rem 0.75rem;
+  background: var(--panel);
+  color: var(--dim);
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+#hint.on {
+  display: block;
+}
+/* One click selects the whole URL, because copying it is the only way out of a frame that may not
+   open a tab. */
+#hinturl {
+  user-select: all;
+  -webkit-user-select: all;
+  overflow-wrap: anywhere;
+}
+/* THE CRUMB IS THE HEADER'S SECOND ROW (cards t20261027-025619-fb7e and t20261028-002834-882a, and
+   2026-10-29): the chain from the app's --root down — folder NAMES, root first — for a file AND for a
+   listing, whose own head no longer has to say where it is because this does. It MOVED UP into the slot
+   the type/size/lines row held, so the header is two rows — the title, then this — where it was three.
+   Every segment is a control but the one naming where the person already is (app.js `drawCrumb`), which
+   is `.here` and is not a button. OFF until a frame carries a chain, and gone in edit mode with the rest
+   of the navigation (the menu is edit mode's whole header).
+
+   ONE LINE THAT SCROLLS, NEVER A THIN COLUMN: nowrap plus overflow-x, so a chain too long for the phone
+   scrolls sideways inside the row instead of wrapping to two words a line. That overflow is also the
+   box rule, and it is a measurement: a box that hides its overflow has an automatic MINIMUM size of
+   ZERO, so it GIVES WAY inside #meta's row rather than pushing the status out of it — the same fact
+   that used to be the band's bug (measured in real Chrome at 390x844, a 21.7px line box in a 33px band
+   collapsed to 16px and clipped the glyphs, Xiaohu's "10px sliver"), used here on purpose. */
+#crumb {
+  display: none;
+  align-items: center;
+  gap: 0.15rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--dim);
+  font: inherit;
+  font-size: var(--fs-ui);
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+#crumb.on {
+  display: flex;
+}
+#crumb button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+#crumb button:hover,
+#crumb button:focus-visible {
+  color: var(--fg);
+  text-decoration: underline;
+}
+#crumb .sep {
+  color: var(--dim2);
+}
+/* WHERE YOU ARE: the segment that names what is on show. It is drawn like the chain and is NOT a
+   control — a disabled <button> would read as "unavailable", which is the opposite of what it says. */
+#crumb .here {
+  color: var(--fg);
+}
+body.editing #crumb {
+  display: none;
+}
+
+/* THE LISTING (the folder view): the entries where the file would be, one row each, the whole width.
+   The names are the server's, so this page needs no colour beyond the theme's own; the SIZE is the
+   reading size, because a list of names is read, not glanced at. OFF until a `show` of a folder draws
+   it — and never a column beside the file: what is on show is ONE thing, and it takes the whole width. */
+#list {
+  display: none;
+}
+#list.on {
+  display: block;
+}
+#list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* A ROW IS A HIT TARGET: a folder opens its listing, a file is shown, and both are the same width of
+   click. The class is `row` and not bare `li`: a rendered markdown file has list items of its own, and
+   the click handler resolves a press with closest("li.row") so the two can never be confused. */
+#list li.row {
+  cursor: pointer;
+  /* A ROW IS A CONTROL, not selectable text: iOS turns a tap on selectable text into a SELECTION
+     gesture and withholds the click (measured on the phone, 2026-10-27). `manipulation` also takes
+     the double-tap-zoom wait off. The pointerup fallback in app.js stays as the belt. */
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.9;
+}
+#list li.row:hover {
+  color: var(--fg);
+}
+/* THE DIM HALF OF A ROW: the size and the date, after the name. */
+#list .at {
+  color: var(--dim2);
+  font-size: 12px;
+  margin-left: 0.6rem;
+}
+/* A REFUSED WALK, or the cap's count: the server's own sentence where the rest of the entries would be. */
+#list .note {
+  margin: 0.4rem 0 0;
+  color: var(--notice);
+  line-height: 1.35;
+  white-space: normal;
+  cursor: default;
+}
+main {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.75rem;
+}
+
+/* Source and the edit mode: CodeMirror fills the page and scrolls itself. */
+body.cm main {
+  overflow: hidden;
+  padding: 0;
+}
+/* **THE EDITOR IS A TEXT ENTRY, SO IT IS 16px** (2026-10-09): CodeMirror mounts its editable content
+   inside this element on the first Edit, and the editor IS what a person types into -- Safari on iOS
+   zooms a focused entry below 16px and does not restore the scale when focus leaves, so on a phone this
+   page zoomed the moment somebody tapped Edit. The bundle sets no font-size anywhere (it inherits), so
+   without this line the entry sat at this page's own base, 14px: measured in Chrome, 390x844 and
+   1400x900, before and after. `--fs-body` is the shared name (loombot/theme.ts, 'what you read and TYPE')
+   and it is spent here rather than the number written again -- this page already links /theme.css.
+   NOT the whole page: this is the entry a person TYPES into, which is what the iOS rule is about. The
+   READING body beside it (.md) is text to read, and since 2026-10-09 it spends the same --fs-body --
+   until then it carried its own 15px (tests/app_reading_size_test.ts holds that; card
+   t20261009-222533-ac85). */
+#editor {
+  display: none;
+  height: 100%;
+  font-size: var(--fs-body);
+}
+body.cm #editor {
+  display: block;
+}
+body.cm #view {
+  display: none;
+}
+#pdf {
+  display: none;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+#pdf.on {
+  display: block;
+}
+#img {
+  display: none;
+  max-width: 100%;
+}
+#img.on {
+  display: block;
+}
+body.pdf main {
+  padding: 0;
+  overflow: hidden;
+}
+/* MARKDOWN: prose, in a proportional font, with code blocks still monospace.
+
+   THE CAP IS A MEASURE, NOT A LAYOUT: it keeps a line readable on a wide panel, and it is CENTERED in
+   the column -- a LEFT-ALIGNED cap is a left margin with the whole right half left empty, which is
+   what the panel looked like on a desktop (reported 2026-09-30). On a phone the cap goes altogether,
+   because 900px is wider than the screen and was never doing anything there; the panel's own padding
+   was all that stood between the prose and the edge. Same 720px line loombot draws for "this is a
+   phone" (loombot/web.ts). It reads 900px because that is the shell's lane, not a column of this
+   page's own -- see the note on `.md` below.
+
+   THE READING BODY IS var(--fs-body): THE SAME TIER AS THE SHELL'S OWN CONVERSATION TEXT (2026-10-09,
+   card t20261009-222533-ac85). This rule used to name a size of its own -- 15px -- and it was the one
+   place on this page that did. The text you READ here sits beside the shell's conversation, which
+   loombot/web_shell_css.ts sizes with  body { font-size: var(--fs-body) }  (16px, loombot/theme.ts, the
+   audited tier for what you read and TYPE) -- so the prose was 1px under the conversation it is read
+   next to. Xiaohu asked which of the two was right; the shell's is, and the size is now spent as the
+   NAME rather than the number, the way #editor above spends it. The heading scale BELOW is expressive
+   and stays in rem on purpose, so it does NOT follow this number. Measured in real Chrome at 1400x900
+   and 390x844, before and after:
+   ~/.loom/library/measuring-an-app-pages-layout-in-chrome. */
+.md {
+  /* THE SHELL'S LANE, NOT A NUMBER OF THIS PAGE'S OWN (2026-10-15, Xiaohu: the viewer reads
+     narrower than the conversation beside it). loombot/theme.ts names it `--lane: 900px`, and web_shell_css.ts spends it
+     on its content lane (.inner, #row, #chips, #composermsg, #statusrow) and this page spent
+     `46rem` -- about 736px -- which is the ONE place here that named a width of its own, exactly
+     the shape the `--fs-body` note below records for the font size. The shell's number is the
+     right one, so it is spent here too. A CSS variable cannot carry it across: this page is its
+     own document in the app frame, and a frame inherits no custom properties from its parent --
+     which is why the number is written out and this comment points at where it comes from. The
+     @media below still lets a phone use the whole width. */
+  max-width: 900px;
+  margin: 0 auto;
+  font-family: system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  font-size: var(--fs-body);
+}
+@media (max-width: 720px) {
+  .md {
+    max-width: none;
+  }
+}
+/* A MARKDOWN LINK LOOKS LIKE A LINK — colour, underline and all — and this rule has to SAY SO, which is
+   the defect of 2026-11-02: `render.ts` draws a workspace path as an `a` with NO href (correct — see
+   the comment in app.js), and a browser colours `:link` only, so with no rule of its own the anchor
+   inherited the body's colour with no underline and its `cursor: pointer` was the only sign it could be
+   pressed. MEASURED in headless Chrome against this page: anchor and body both rgb(26, 29, 36),
+   `text-decoration-line: none`. `--you` is loombot's own link colour (shared/web_shell_css.ts: `a { color:
+   var(--you) }`), published by /theme.css like every other colour here.
+   A URL carries a real href (render.ts) and takes the same look: one rule for both kinds, because a
+   person reading a file should not have to know how the page opens it.
+   A link whose url the server refused (an empty data-href) is drawn as TEXT instead — nothing can
+   answer a click on it — and a `#fragment` is a live link like any other: the click asks the server,
+   which answers with the heading id to scroll to (`goto_anchor`). */
+#view.md a {
+  color: var(--you);
+  text-decoration: underline;
+  cursor: pointer;
+}
+#view.md a[data-href=""] {
+  color: var(--dim);
+  text-decoration: none;
+  cursor: text;
+}
+.md h1,
+.md h2,
+.md h3 {
+  line-height: 1.25;
+}
+.md h1 {
+  font-size: 1.7rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.2rem;
+}
+.md h2 {
+  font-size: 1.35rem;
+}
+.md code {
+  font-family: ui-monospace, Menlo, monospace;
+  /* THE SIZE IS NOT THIS PAGE'S (card t20261108-043648-5961): shared/theme.ts sets an inline code span
+     to 0.9em of the prose it sits in, for the panel's markdown everywhere -- this document links that
+     sheet at /theme.css. A number written here as well would be a second answer to the owner's ruling
+     (`代码片段也不应该比正文大`), and the one place the two could disagree is a table cell. */
+  background: var(--panel);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+/* A fenced block: escaped text from the server, coloured by CodeMirror's highlighter in code.js. */
+.md pre.fence {
+  margin: 0.8rem 0;
+  padding: 0.5rem 0.75rem;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+}
+.md pre.fence code {
+  background: none;
+  padding: 0;
+  font-size: 13px;
+}
+.md blockquote {
+  margin: 0.8rem 0;
+  padding-left: 0.8rem;
+  border-left: 3px solid var(--line);
+  color: var(--dim);
+}
+/* THE SCROLL CONTAINER IS NOT HERE EITHER (card t20261108-043648-5961): the shared renderer puts every
+   table in a .tablewrap, and that class's scrollbar comes from shared/theme.ts, served to this document
+   at /theme.css -- one statement for every panel document. What stays here is the table's own look. */
+.md table {
+  border-collapse: collapse;
+  margin: 0.8rem 0;
+}
+.md th,
+.md td {
+  border: 1px solid var(--line);
+  padding: 0.25rem 0.5rem;
+}
+.md img {
+  max-width: 100%;
+}
+.empty {
+  color: var(--dim);
+}
+body.dead {
+  opacity: 0.5;
+}

@@ -1,0 +1,87 @@
+body {
+  background: var(--bg, Canvas);
+  color: var(--fg, CanvasText);
+  font: 16px/1.5 system-ui, sans-serif;
+  max-width: 34rem;
+  margin: 3rem auto;
+  padding: 0 1rem;
+}
+/* SQUARE CELLS AT EVERY BOARD SIZE, and a board that stays in the column it is drawn in. Each of the
+   three declarations below replaces a measured way this was wrong.
+
+   A cell is square BY CONSTRUCTION, not by two equal lengths: width/height 4rem + the generic button
+   rule's padding is square only in a browser whose default for button is box-sizing: border-box. In one
+   that defaults to content-box the same cell renders 94.78 x 75.59 px — a 1.254 rectangle, measured in
+   Chrome with that default forced, i.e. the board is square in one browser and not in another. And 15
+   such cells at a fixed 4rem are 1016 px of board inside a 544 px column, running off the page: a 15x15
+   board could not be seen whole at any window width.
+
+   So the grid is --n equal columns (--n is the state's size, set by app.js), a cell is aspect-ratio: 1
+   whatever width its column ends up, and the board is as wide as 4rem cells need up to the column's
+   width. 3x3 is unchanged (4rem cells, 200 px board); 15x15 shrinks the cells to fit. */
+#board {
+  --n: 3;
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  width: min(100%, calc(var(--n) * 4rem + 4px * (var(--n) - 1)));
+  gap: 4px;
+  margin: 1.5rem 0;
+  container-type: inline-size;
+}
+#board button {
+  box-sizing: border-box;
+  aspect-ratio: 1;
+  width: 100%;
+  /* A GRID ITEM'S AUTOMATIC MINIMUM SIZE BEATS aspect-ratio. Its min-height is min-content unless this
+     says otherwise, so a mark with a line box taller than the column is what sizes the ROW — and the cell
+     comes out taller than it is wide. Measured in a simulated engine with no container-query units (the
+     fallback mark below, 16px, in an 11.8px cell at 21x21 on a 360px window): 11.797 x 18.000, ratio
+     0.655, and square again with this line. Squareness may not depend on whether the mark fits. */
+  min-height: 0;
+  /* AND WHAT IS PAINTED IS THE CELL, whatever the mark's line box does. Empty half-leading is what
+     overflows an 18px line box into an 18px cell; the mark's INK still fits (10.02 x 11.27 in an
+     11.797px cell at 21x21 on a 360px window, a canvas measurement of the same font string), so this
+     clips nothing visible — it stops the painted cell depending on font metrics in an engine nobody
+     could test here. Measured with it: geometry identical in every configuration. */
+  overflow: hidden;
+  padding: 0;
+  /* HALF THE CELL, not a constant: 2rem of mark overflows a 15x15 cell (which is 32px). cqw is 1% of
+     the board's width — the only length here that knows how many columns there are — and the gaps are
+     subtracted because they are not cell. At 3x3 this is the 2rem it always was.
+
+     The 1rem line above it is for an engine with no container-query units: the whole calc would be
+     DROPPED there (an invalid declaration loses), and a 16px mark is then taller than the 11.8px cell of
+     a 21x21 board on a 360px window: its LINE BOX is (18px against 11.8 — empty half-leading, not ink;
+     the ink is 10.02px wide and fits). "min-height: 0" above is what keeps that cell square anyway:
+     squareness does not depend on the mark fitting, and "overflow: hidden" stops the paint depending on
+     it either. */
+  font: 600 1rem/1 system-ui, sans-serif;
+  font: 600 calc((100cqw - 4px * (var(--n) - 1)) / var(--n) / 2)/1 system-ui, sans-serif;
+  background: var(--panel);
+  color: var(--fg, CanvasText);
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+#board button:disabled {
+  cursor: default;
+}
+#note {
+  min-height: 1.5rem;
+  color: var(--danger-fg);
+}
+#verdict {
+  min-height: 1.5rem;
+  color: var(--dim);
+}
+button {
+  font: inherit;
+  padding: 0.3rem 0.9rem;
+}
+/* #note is a REFUSAL and #channel is a CONNECTION — two different things, so two elements and two
+   colours. --notice is THE SAME ORANGE THE STRIP'S DOT IS, so a page whose app is not answering reads
+   as the state the tab showed: one state, one colour. Without it the page's own words and a broken
+   page look alike, which is the defect the task board measured on a phone (2026-10-21). */
+#channel {
+  min-height: 1.5rem;
+  color: var(--notice);
+}

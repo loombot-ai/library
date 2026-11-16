@@ -1,0 +1,20 @@
+{
+  "tasks": {
+    "build": {
+      "description": "Build the tally example's page: src/ into assets/ (esbuild, minified), printing the size table and asserting that what it wrote really was minified. assets/ is the ONLY directory this task writes and is what the app registers (--dir assets); a second run writes nothing (git status clean).",
+      "command": "deno run -A --config ../../../../deno.json build.ts"
+    }
+  },
+  "fmt": {
+    "lineWidth": 100,
+    "proseWrap": "preserve",
+    "exclude": [
+      "assets/"
+    ]
+  },
+  "lint": {
+    "exclude": [
+      "assets/"
+    ]
+  }
+}
