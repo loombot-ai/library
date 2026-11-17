@@ -1,0 +1,34 @@
+# PROVENANCE
+
+from loom cb8bceae04c17f6b13ac579533ba31e944a46ee8, library as of 2026-11-17
+
+Every folder under `loom/` here was written by `deno task library:publish` in the loom
+repository, at the commit above, on that date. It has TWO sources, and neither of them is this
+repository:
+
+    the 16 entry folders
+        <- loom `library.pin.json` at the commit above, which pins https://github.com/loombot-ai/library at
+           291f4a3650c67f846b88d952324761ebb71abee2
+    the 7 folders that carry a program loom RUNS
+        <- `loom/library/<folder>/` at the commit above (browser-for-online-tasks, building-a-loom-app, file-viewer, mcp, task-board, writing-a-tool-module, writing-payloads-in-repl-code)
+
+`README.md` and `LICENSE.md` at this repository's root are its own editorial files. The publish does not
+write them, and it refuses to run in a checkout that has neither.
+
+Nothing under `loom/` is edited by hand: a change made here is a change the next publish
+deletes.
+
+## How to check one file against the commit above
+
+A folder loom runs - its bytes are that commit's `loom/library/` folder, byte for byte:
+
+    git -C <a loom checkout> show <commit>:loom/library/<folder>/<file> \
+      | diff - loom/<folder>/<file>
+
+An entry - its authority is the pinned commit, so the check is that the pin still names it:
+
+    git -C <a loom checkout> show <commit>:library.pin.json        # names 291f4a3650c67f846b88d952324761ebb71abee2
+
+and then, in that loom checkout, `deno task library:publish --dry`: it re-reads the pinned cache and
+these folders, compares every file the public tree should hold, and prints `nothing to change` on a tree
+that agrees with its sources. That dry run is the whole check, and it is one command.

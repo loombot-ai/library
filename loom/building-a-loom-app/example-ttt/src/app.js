@@ -153,7 +153,7 @@ let gaveUp = false;
 // AND THE PAINT ASKS NOTHING: `draw` alone, never `fold` — a painted position is a picture of what the
 // rules held, and whether it is somebody's move is the APP's fact that the next read settles. This app's
 // frames carry no `at`, so "the newer read" is simply the read that succeeded last.
-const MINE = /\/a\/([^/]+)\/app\/([^/]+)/.exec(location.pathname);
+const MINE = /\/session\/([^/]+)\/app\/([^/]+)/.exec(location.pathname);
 const KEEP = MINE ? "app:" + MINE[1] + ":" + MINE[2] + ":read" : null;
 
 /** Whether this is a position this page can draw — the one shape check, used keeping and reading back. */

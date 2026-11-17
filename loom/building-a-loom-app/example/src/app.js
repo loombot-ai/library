@@ -51,7 +51,7 @@ const el = (id) => document.getElementById(id);
 //
 // This app's frames carry no `at`, so "the newer read" is simply the read that succeeded last; an app that
 // stamps its reads compares them, which is what the board's page does.
-const MINE = /\/a\/([^/]+)\/app\/([^/]+)/.exec(location.pathname);
+const MINE = /\/session\/([^/]+)\/app\/([^/]+)/.exec(location.pathname);
 const KEEP = MINE ? "app:" + MINE[1] + ":" + MINE[2] + ":read" : null;
 
 /** Whether this is a state this page can draw — the one shape check, used keeping and reading back. */

@@ -30,7 +30,7 @@
 // text file is shown, and never for a PDF or an image.
 const here = location.pathname.replace(/\/+$/, "");
 // The page's URL is /a/<workspace>/app/<name>/: both halves of the per-app storage prefix come from it.
-const where = /\/a\/([^/]+)\/app\/([^/]+)/.exec(here);
+const where = /\/session\/([^/]+)\/app\/([^/]+)/.exec(here);
 const WS = where ? decodeURIComponent(where[1]) : "";
 const APP = where ? decodeURIComponent(where[2]).replace(/@.*$/, "") : "viewer";
 const el = (id) => document.getElementById(id);

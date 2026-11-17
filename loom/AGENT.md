@@ -43,6 +43,88 @@ Two readers, two different rules, and they are not the same code — get them st
   depth: 1 })` returns two rows whose `lib.name` is `library`. Not a bug, and not an accident of this file: read the path. The
   `README.md` is the always-inlined guidance; this file is the contract for changing the tree.
 
+## Which folders live HERE, and which come from the pin (2026-11-11)
+
+**The tree has ONE source per folder, and `library.pin.json` at the repo root is the file that says which.**
+Before 2026-11-11 this repo kept a SECOND copy of every entry and the public repo `loombot-ai/library` was
+pushed by hand, so the two could drift with nothing to detect it — and by the commit now pinned they already
+had, in nine places: eight apps' built `src/app.js` and `assets/app.js`, and a `mcp/deno.lock` the
+published tree did not have. The owner's decision (2026-11-11): the public repo is the ONE source of the
+ENTRIES, and this repo keeps what loom has to RUN.
+
+| folder                                                                                                                                                                                                             | source                           | why                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| the **16 entry folders** (`a-red-gate-is-a-question`, `loom-itself`, `software-engineering`, …)                                                                                                                    | **the pinned commit**            | prose, and nothing in them runs — so a build can embed them and a release needs no network                                                          |
+| the **7 folders that carry a PROGRAM**: `file-viewer`, `task-board`, `building-a-loom-app`, `mcp`, `browser-for-online-tasks`, and `writing-a-tool-module/example.ts` + `writing-payloads-in-repl-code/payload.ts` | **this repo**, shipped as source | an agent STARTS these with `deno run`, and a child process can open only real paths — an embedded copy would answer `Module not found` on a release |
+| the root's `README.md`, `AGENT.md`, `build_step.ts`                                                                                                                                                                | **this repo**                    | the first two are about THIS tree, and the third is the build four app folders import                                                               |
+
+- **`library.pin.json`** names the repo, the full commit, the 16 entries, and the 7 kept folders with a
+  reason each. A bump is a one-line diff there. `--check` refuses a folder in the pinned tree that is in
+  NEITHER list, because such a folder would be in the pin, in nobody's list, and in NO bundle.
+- **`deno task library:sync`** fetches that commit ONCE into `~/.cache/loom/library/<commit>/`
+  (`LOOM_LIBRARY_CACHE` points it elsewhere) and writes the entry folders into `loom/library/` — the one path
+  a checkout, `deno install` and a bundle all read (`loom/library.ts` `BUILTIN_DIR`). **Those folders are
+  gitignored here**, because a tracked copy is exactly the second source this change deletes. A fresh clone
+  syncs once; every build after it is offline.
+- **`deno task package` embeds them FROM THE CACHE**, not from this tree: it removes the pinned folders from
+  the build's stage and writes them again at the pin's bytes, then puts `loom/library/PIN.json` inside the
+  tarball (the commit, every file's sha256, one digest) and re-reads it from the UNPACKED tarball before the
+  build passes. A bundle cannot carry a stale library and still verify.
+- **The gates**: `deno task library:check` (in `deno task check`) refuses a copy on disk that is not the
+  pin's, or a folder that is tracked here as well as pinned; `tests/library_pin_test.ts` exercises the
+  tampered-tree refusal and the overlay's replacement of a stale stage; `tools/system_library_gate.ts` now
+  judges the SOURCE — this repo's folders plus the pinned entries in the cache — rather than the copy.
+
+### Editing an entry, now
+
+1. Edit it in a checkout of `loombot-ai/library` (the folder there is `loom/<entry>/`), and push THAT repo:
+   it is the entry's source.
+2. Bump `commit` in `library.pin.json` to the new commit — a full 40-hex sha; a branch is refused, because a
+   branch would re-point the library without a diff anyone reviews.
+3. `deno task library:sync`, then `deno task library:check`. The copy on disk is the pin's again.
+4. Rebuild: `deno task package`. Its `PIN.json` now names the new commit, and the build refuses to ship a
+   tarball that disagrees with it.
+
+### Publishing the tree — `deno task library:publish`, and the two properties it is judged on
+
+The public repo is written by ONE command, from its two sources, and the dry run is what a lead makes first:
+
+    deno task library:publish --dry     what would move, the commit message, PROVENANCE — and NOTHING written
+    deno task library:publish           gate, stage, write provenance, commit, push, verify
+
+It refuses rather than guesses: a kept file or `library.pin.json` that is not committed (the published bytes
+would come from a tree no commit holds, and `PROVENANCE` names a commit), a folder under the public `loom/`
+that the pin classifies as neither an entry nor kept (a publish would DELETE it), a checkout on a detached HEAD,
+and a checkout whose `origin` is not the pin's repo. Exit 0 is published or nothing to publish, exit 1 is a step
+refused and named, exit 2 is the flags.
+
+- **A publish of an unchanged tree is a NO-OP.** Every wanted file's sha256 is compared with the checkout's, only
+  the differing bytes are written, and `PROVENANCE` is rewritten only when the tree it describes moved — so a
+  second publish writes nothing, commits nothing and exits 0 with
+  `nothing to publish: ... N file(s) compared, 0 changed`. That holds after loom's own code has moved on, because
+  `PROVENANCE` keeps naming the commit the published bytes came from.
+- **A publish after one entry changes moves EXACTLY that entry.** `tests/library_publish_test.ts` asserts the
+  second commit's file list is exactly `loom/alpha/README.md`, and that the untouched entry is the SAME git
+  object before and after — over a scratch `git init --bare` in `$TMPDIR`, never a real remote.
+
+`PROVENANCE` at the public root and the commit message's first line both read
+`from loom <40-hex>, library as of <date>`; the file also says which source each half came from and how to check
+one file against that commit (`git -C <loom> show <commit>:loom/library/<folder>/<file> | diff -
+loom/<folder>/<file>`).
+
+**The 7 kept folders are published FROM THIS REPO and never from the pin.** At the pinned commit their copies in
+the public repo are STALE — the built apps still route on `/a/<id>/app/<id>` where this repo has
+`/session/<id>/app/<id>`, `mcp/deno.lock` is missing there, and the public `loom/AGENT.md` predates this
+change — so a publish that took them from the pin would re-publish exactly the drift the pin was introduced to
+end. `--dry` prints them one path at a time: measured 2026-11-17 against the pin, 10 paths differ, and they are
+those nine files plus `loom/AGENT.md`.
+
+**A local experiment needs none of that**: put the entry in the personal root `~/.loom/library`, which every
+run reads, which is writable, and which is never published. Editing the GITIGNORED copy in
+`loom/library/<entry>/` is a dead end by construction — `library:sync` refuses to overwrite a file that
+differs from both the pin and its own record, and names the files, so the edit is recoverable rather than
+silently destroyed (`--force` overwrites anyway).
+
 ## Editing the root `README.md`
 
 - **Its search sentence is pinned VERBATIM.** `tests/library_test.ts:417` holds it as the `ARM_LS` constant and
@@ -126,8 +208,10 @@ Two readers, two different rules, and they are not the same code — get them st
   from. That on-disk-ness is load-bearing: an agent starts `viewer_mcp.ts` with `deno run`, and a child
   process can only open real paths - a path inside a `deno compile`d artifact's embedded filesystem is
   readable by the artifact's own Deno and by nothing it SPAWNS, which cost the viewer and both servers a
-  `Module not found` on a release before that flavour was deleted (`docs/release.md`). Nothing copies this
-  tree, and nothing may: `tools/package.ts` `RUNTIME_FILES` is the list of what ships.
+  `Module not found` on a release before that flavour was deleted (`docs/release.md`). **The programs
+  themselves are never embedded**: every layout carries `loom/library/` as real files, and `tools/package.ts`
+  `RUNTIME_FILES` is the list of what ships. The ENTRY folders are the one part a build copies — from the
+  pinned commit into the stage, at build time — and they hold no code, so nothing has to run them.
 
 - **A NEW PROGRAM IN THIS TREE IS THREE GATES, AND ONE RUN FINDS ALL THREE** (measured 2026-11-08, adding
   `mcp/library_mcp.ts`): (1) `tests/system_programs_test.ts` walks the program's real VALUE-import graph and

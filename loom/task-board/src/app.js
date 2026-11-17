@@ -214,7 +214,7 @@ const KEPT_MAX = 512 * 1024;
  * fact that survives a page being served from somewhere else. The app name keeps its `@agent` suffix —
  * two agents may register one name (`loombot/registered.ts` `servedId`), and their boards are two boards.
  */
-const MINE = /\/a\/([^/]+)\/app\/([^/]+)/.exec(location.pathname);
+const MINE = /\/session\/([^/]+)\/app\/([^/]+)/.exec(location.pathname);
 const KEEP = MINE === null
   ? null
   : "app:" + decodeURIComponent(MINE[1]) + ":" + decodeURIComponent(MINE[2]) + ":read";
