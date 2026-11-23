@@ -1,7 +1,7 @@
 ---
 name: file-viewer
 description: "Read when someone asks to SEE or EDIT a file — or a FOLDER — on screen in the loom web UI (\"show me <file>\", \"let me edit <file>\") rather than in the transcript: markdown rendered, code highlighted, a PDF, an image, and a folder as its listing, click-through built in; text is editable and you hear when they save. A picture in your reply needs none of this: `![alt](path)`."
-as_of: "2026-11-09"
+as_of: "2026-11-18"
 ---
 
 # `viewer`: one tool, the file is on the page, and the human can edit it
@@ -144,6 +144,65 @@ and the reason used to be on screen for one frame); and a press with the channel
 with the stack kept, instead of sending `open_path` to a server nobody answers.
 `test/browser-test/folder_check.ts` 4g-4k are the claims, and `test/browser-test/evidence-viewer-back/` is
 the before and after, photographed in a real panel frame over a listing an agent opened.
+
+**AND THE WALK IS THE APP LIFE'S, NOT THE DOCUMENT'S — A RELOAD KEEPS IT** (owner, 2026-11-12: "back
+按钮有问题，经常是灰色的。是不是浏览历史管理有问题"). AUDITED FIRST, in the page's own terms: the row is ONE
+line — `el("back").disabled = past.length === 0` (`paintMenu`) — so it is grey exactly when THIS DOCUMENT has no
+move behind it, and `past` is emptied only by a walk that lands. Every ordinary move fills it (a row, a crumb, a
+link, an agent `show`: one `open_path` each), so the grey the owner hit is the document that REPLACED one at the
+same address — a frame reload, a re-registration, an eviction and re-open, a panel reload (`client/conversation.js`
+does all of these with `pointFrame`). The browser keeps its entries across that; the page did not, so it started
+with an empty stack OVER a real walk — and the browser's own Back then landed on an entry it could not name, said
+nothing, and RENAMED it to the view on screen (measured: entries [a.md, b.md] became [b.md, b.md], the picture did
+not move, twice — the entries walked one press at a time). SO THE NAMES ARE KEPT WHERE THE READ IS KEPT
+(`app:<ws>:<app>:walk`, written by `rememberWalk` from `paintMenu`, the one place every walk change ends) and
+ADOPTED by a document that arrives on an entry a VIEWER document already named — `history.state.loomView`, read
+BEFORE the landing renames it (`adoptWalk`, gated on the record's own `here` agreeing with what is on screen). A
+FRESH OPEN is a frame NAVIGATION, whose entry has no state, so it inherits nothing and stays grey — the state the
+owner asked for on 2026-11-11. AND THE CAP IS NOT THIS: at Chrome's 50 pushes the count in `walkable` runs ahead of
+the browser's entries (`past` 60, trail 50 in the fake-DOM run) but the row is ENABLED, so a wrong press costs a
+wait and `fallBack` — never a grey; and an app FRAME's `pushState` is one JOINT history entry with loombot's own
+page (`client/conversation.js` measures exactly that, 6176), which is why the row is never the way out of a session.
+`deno task viewer-back-reload-rig` is the eight claims (real Chrome, a real `location.reload()` in a real frame,
+the page's own `loomViewer.history()`), and `tests/app_viewer_edit_test.ts` "a reload keeps the walk" is the
+same claim against the fake DOM, with the fresh-open negative control beside it.
+
+**EVERY `history` WRITE, AUDITED AGAINST THE BROWSER'S OWN ENTRY LIST** (owner, 2026-11-18: "back 灰色那个问题
+我是担心 history 有没有被正确更新。你审过 history 的更新逻辑吗？"). The rows below are MEASURED, not argued — one
+row per event, written into `tests/app_viewer_edit_test.ts` ("THE HISTORY TABLE", whose fake browser reports
+every entry's name, which a real one only lets you read by walking it) and into
+`test/browser-test/viewer_back_reload.ts` (the browser's own count, over CDP):
+
+    event                                   call                     entries after
+    the KEPT read on a new document         nothing                  unchanged — memory is on no entry
+    the LANDING (the app's first frame)     replaceState             the arrival entry, renamed; length +0
+    the same view drawn twice               nothing                  +0 (a save, a refresh, a re-render)
+    a MOVE (row, crumb, link, agent show)   pushState                +1, exactly
+    the browser's Back / the menu's         back(), never a push     +0 — the walk writes nothing
+    a reload, walk adopted                  replaceState (no-op)     +0, the entry keeps its name
+    a frame navigation (eviction, switch)   nothing (the panel's)    takes the NEXT joint entry (measured
+                                                                     count 3 -> 3, index 1 -> 2: the entry
+                                                                     ahead of the document is discarded)
+    a popstate onto an entry this document  **NOTHING** (it used     unchanged; the entry keeps the view it
+    cannot name                             to replaceState here)    stood for
+
+THE LAST ROW WAS A WRITE UNTIL THIS AUDIT, AND IT WAS THE ONLY WRONG ONE. `walked` used to `replaceState` the
+view on screen into an entry it had landed on and refused to ask for, "so the browser agrees with the screen".
+Measured: a walk whose record no longer matched the view on it (the app moved while the frame was away, so
+`adoptWalk` refused the record — correctly) left the entries `["/w/a.md", "/w/c.md"]`, and that press turned
+them into `["/w/c.md", "/w/c.md"]` while `here`, the title and the row did not move at all: two adjacent
+entries naming ONE view (a Back and a Forward between them that can never show anything), and the only record
+that the first one stood for a.md destroyed — a file this app life had drawn, and would have drawn again if
+anything had asked. It also BOUGHT nothing: the press AFTER one of those lands on the entry behind, renamed or
+not, in exactly the same one step. What a refusal needs is the guard (`named`), and a guard is not a reason to
+write.
+
+TWO FACTS FOR WHOEVER MEASURES THIS NEXT. **`history.length` IS NOT THE BROWSER'S COUNT IN A SUBFRAME — IT
+LAGS**: after a `pushState` inside the frame it still read the number from before it (2 while the joint list
+was 3) and only caught up on the next navigation, which is why `walkable` is a page-side count and why any
+claim about entries has to come from CDP (`Page.getNavigationHistory`) or from the fake DOM. And an app
+FRAME's navigation is a JOINT entry in loombot's own history, so an eviction or a switch is not free: it takes
+the entry after where the document stood and throws away whatever was ahead of it.
 
 **EVERYTHING OPENS: `show` ALWAYS ANSWERS A FRAME, AND THE ANSWER IS RENDERED OR DOWNLOADABLE.** The app
 stops deciding which files are openable. A file it cannot put on the page — binary data, anything past the

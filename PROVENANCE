@@ -1,6 +1,6 @@
 # PROVENANCE
 
-from loom cb8bceae04c17f6b13ac579533ba31e944a46ee8, library as of 2026-11-17
+from loom c7526c2395ee37225e4630d3ca606239094a72c7, library as of 2026-11-23
 
 Every folder under `loom/` here was written by `deno task library:publish` in the loom
 repository, at the commit above, on that date. It has TWO sources, and neither of them is this
@@ -9,8 +9,8 @@ repository:
     the 16 entry folders
         <- loom `library.pin.json` at the commit above, which pins https://github.com/loombot-ai/library at
            291f4a3650c67f846b88d952324761ebb71abee2
-    the 7 folders that carry a program loom RUNS
-        <- `loom/library/<folder>/` at the commit above (browser-for-online-tasks, building-a-loom-app, file-viewer, mcp, task-board, writing-a-tool-module, writing-payloads-in-repl-code)
+    the 8 folders that carry a program loom RUNS
+        <- `loom/library/<folder>/` at the commit above (browser-for-online-tasks, building-a-loom-app, file-viewer, mcp, task-board, web-search, writing-a-tool-module, writing-payloads-in-repl-code)
 
 `README.md` and `LICENSE.md` at this repository's root are its own editorial files. The publish does not
 write them, and it refuses to run in a checkout that has neither.

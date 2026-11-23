@@ -123,6 +123,18 @@ const KEPT_MAX = 2 * 1024 * 1024;
     opened outside loombot), no keep: a read has nothing to be right about without one. */
 const APPRAW = where ? decodeURIComponent(where[2]) : "viewer";
 const KEEP = where === null ? null : "app:" + WS + ":" + APPRAW + ":read";
+/**
+ * **THE KEY THE WALK IS KEPT UNDER, IN THE SAME STORE AS THE READ** (card t20261118, the owner's "back 经常是
+ * 灰色的"). `past` and `named` are this DOCUMENT's model of a walk the BROWSER owns: the entries behind it
+ * survive a reload and `timeOrigin` does not, so a document that replaced another at the same address started
+ * with an empty stack over a real one — a GREY Back with somewhere to go, and a browser's Back that asked
+ * nothing and RENAMED the entry it landed on (measured, `tests/app_viewer_edit_test.ts`). What a reload needs
+ * is the NAMES, and the page is where they were written.
+ */
+const WALK = where === null ? null : "app:" + WS + ":" + APPRAW + ":walk";
+/** The walk record's shape, and the most entries it keeps: a browser takes 50 pushes and no more. */
+const WALK_VERSION = 1;
+const WALK_MAX = 50;
 /** THE STATE VERSION OF THE LAST FRAME THAT ARRIVED (`answered`) — what `keepRead` labels a read with.
     Null when the app keeps none, and then nothing is refused. */
 let lastRev = null;
@@ -1290,6 +1302,7 @@ async function draw(d, kept = false) {
       // FIRST view and REPLACES it, the browser is left with no entry of its own behind that move, and the
       // Back after it moves nothing at all while this page says it is going.
       if (!landingMarked) {
+        adoptWalk(here);
         recordView(here, true);
         landingMarked = true;
         viewMarked = here;
@@ -1304,6 +1317,7 @@ async function draw(d, kept = false) {
       // pushing it made `past` name a view the browser never had, which is `fallBack` asking the server
       // for a path this life never drew. The app's first frame is this document's LANDING, not a move.
       if (was && !wasMemory) past.push(was);
+      adoptWalk(here);
       recordView(here, !landingMarked);
       landingMarked = true;
       viewMarked = here;
@@ -1872,19 +1886,22 @@ function walked(ev) {
   // opened." A refusal is not a walk: the page asks nothing and moves no view.
   if (!named.includes(at)) {
     say("");
-    // AND THE ENTRY IS RENAMED TO WHAT IS ON SCREEN, which is the walk this page really has: the person is
-    // looking at `viewMarked` and the entry they are standing on said something else, so the next press
-    // would land on a stale name again. One `replaceState` (no new entry, nothing behind it) makes the
-    // browser agree with the screen; a realm that cannot write keeps the guard, which is the whole of what
-    // the refusal needed.
-    const mine = viewMarked || here;
-    if (historyWorks && mine) {
-      try {
-        history.replaceState({ loomView: mine }, "");
-      } catch {
-        historyWorks = false;
-      }
-    }
+    // **AND THE ENTRY IS LEFT AS IT STANDS — NOT RENAMED** (card t20261118, the owner's follow-up: "我担心
+    // history 有没有被正确更新"). It used to `replaceState` the view on screen into this entry "so the browser
+    // agrees with the screen", and MEASURED 2026-11-18 in the page's own harness ("THE HISTORY TABLE",
+    // `tests/app_viewer_edit_test.ts`) that write is the one thing this page does that the SCREEN does not do:
+    // a walk whose record no longer matched the view on it (the app moved while the frame was away, so
+    // `adoptWalk` refused the record — correctly) left the entries ["/w/a.md", "/w/c.md"], and the press that
+    // landed on /w/a.md turned them into ["/w/c.md", "/w/c.md"] while `here`, the title and the row did not
+    // move at all: two adjacent entries naming ONE view, a Back and a Forward between them that can never show
+    // anything, and the only record that the first one stood for a.md DESTROYED — a file this app life had
+    // drawn, and would have drawn again if anything ever asked it.
+    //
+    // AND IT BOUGHT NOTHING (the same table): the press AFTER one of these lands on the entry behind, whether
+    // this one was renamed or not, in exactly the same one step. What a refusal needs is the GUARD above —
+    // never ask for a view this document did not name — and a guard is not a reason to write. A `popstate`
+    // that moves the browser and not the view has nothing to record; the entry keeps the name of the view it
+    // is standing on, which is what makes it readable by the next document that lands on it.
     paintMenu();
     return;
   }
@@ -1907,6 +1924,94 @@ function walked(ev) {
 }
 addEventListener("popstate", walked);
 
+/** THE WALK AS THE RECORD KEEPS IT, or null — the same discipline as `remembered`: checked where it is
+    READ, never trusted where it was written, and never able to throw into a press. */
+function walkRemembered() {
+  const s = storage();
+  if (s === null || WALK === null) return null;
+  let raw = null;
+  try {
+    raw = s.getItem(WALK);
+  } catch {
+    return null;
+  }
+  if (!raw) return null;
+  let r = null;
+  try {
+    r = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!r || r.v !== WALK_VERSION || typeof r.here !== "string") return null;
+  const strings = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === "string") : []);
+  return {
+    here: r.here,
+    past: strings(r.past),
+    named: strings(r.named),
+    walkable: Number(r.walkable) || 0,
+  };
+}
+
+/** WRITE THE WALK, so a document that replaces this one can stand where it stood. Called by `paintMenu`,
+    which is the one place every walk change ends. An empty walk is a record REMOVED: a fresh open must not
+    inherit anything. */
+function rememberWalk() {
+  const s = storage();
+  if (s === null || WALK === null) return;
+  // **NOTHING IS WRITTEN BEFORE THIS DOCUMENT HAS NAMED ITS LANDING** (measured while writing the fix: the
+  // boot's own paint runs through here with an empty walk, and the "an empty walk is a record removed" line
+  // below then DELETED the walk of the document being replaced — the adoption read nothing and the row came
+  // back grey). Until `landingMarked` the walk in the store is the OTHER document's, to be adopted or not.
+  if (!landingMarked) return;
+  try {
+    // AN EMPTY WALK IS A RECORD REMOVED: with nothing behind, there is nothing to adopt, and a record left
+    // over from a walk this document has already walked back out of must not be picked up by the next one.
+    if (past.length === 0) {
+      s.removeItem(WALK);
+      return;
+    }
+    s.setItem(
+      WALK,
+      JSON.stringify({
+        v: WALK_VERSION,
+        here: viewMarked,
+        past: past.slice(-WALK_MAX),
+        named: named.slice(-WALK_MAX),
+        walkable: walkable,
+      }),
+    );
+  } catch { /* what is on screen never depends on the copy */ }
+}
+
+/**
+ * **A DOCUMENT THAT ARRIVES ON AN ENTRY A VIEWER DOCUMENT NAMED IS THE SAME WALK, CONTINUED** (card
+ * t20261118). The gate is `history.state`, read BEFORE this document renames the entry: a browser keeps an
+ * entry's state across a reload, so an arrival whose state already names `here` is a document replacing one
+ * at the same address — while a FRESH open is a frame NAVIGATION, whose entry has no state at all
+ * (`client/conversation.js` `pointFrame`), and that one stays grey with nothing behind it, which is what the
+ * owner asked for on 2026-11-11.
+ *
+ * AND WHAT COMES BACK IS ONLY THE VIEW THAT IS ON SCREEN: a record written at another view is a walk behind
+ * a different place, and adopting it would name entries whose landing is not where the person is.
+ *
+ * `walkable` is restored with it because the browser's entries survived the reload too; an over-count costs a
+ * wait and not the press (see `BACK_MS`, which takes the walk `past` is).
+ */
+function adoptWalk(here) {
+  if (!historyWorks || landingMarked) return;
+  let arrived = "";
+  try {
+    const s = history.state;
+    arrived = s && typeof s.loomView === "string" ? s.loomView : "";
+  } catch { /* a realm that will not say has no walk to restore */ }
+  if (!arrived || arrived !== here) return;
+  const record = walkRemembered();
+  if (record === null || record.here !== here) return;
+  for (const p of record.past) if (past.indexOf(p) < 0) past.push(p);
+  for (const n of record.named) if (named.indexOf(n) < 0) named.push(n);
+  walkable = Math.min(record.walkable, past.length);
+}
+
 /** THE MENU'S STATE, for the two rows that are not about a file being editable at all. */
 function paintMenu() {
   // THE ROW IS ENABLED ONLY BY A MOVE THIS DOCUMENT RECORDED (`past` is filled by a real move, never by
@@ -1914,6 +2019,9 @@ function paintMenu() {
   // the state `#back` ships in (`index.html`, `disabled`).
   el("back").disabled = past.length === 0;
   el("download").disabled = !(cur && cur.download);
+  // THE WALK GOES TO THE STORE HERE, because this is where every walk change ends (a move, a Back, a landing,
+  // a forward) — one writer, and no press ever waits on it (see `rememberWalk`).
+  rememberWalk();
   fitMenu();
 }
 
