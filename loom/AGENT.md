@@ -224,9 +224,12 @@ silently destroyed (`--force` overwrites anyway).
   and an `as_of`. The gates are named rather than the fix, because the same run will find whichever of the
   three a new program happens to miss.
 
-- **`browser-for-online-tasks/{safari,chrome}.ts` are excluded BY NAME from `deno check`** (plain JavaScript in a
+- **`browser-for-online-tasks/safari.ts` is excluded BY NAME from `deno check`** (plain JavaScript in a
   `.ts` file, which `loadTools` imports dynamically). `tests/check_tree_test.ts` asserts each exclusion still
   exists and still fails `check`; the typecheck that makes every other file a root is `tools/AGENT.md`'s half.
+  `chrome.ts` beside it was excluded the same way until 2026-11-23, when its annotations made it checkable;
+  typed, it needs no exclusion — and `web-search/search.ts` imports it, so the gate had been checking it
+  as a DEPENDENCY all along, which is how 21 implicit-`any` errors got past a by-name exclusion.
 - The file viewer's `vendor/` is the bulk of this tree (CodeMirror, vendored with its own LICENSE, lock and
   `build.sh`) — the model for "hand the format to the real library rather than hand-roll it".
 

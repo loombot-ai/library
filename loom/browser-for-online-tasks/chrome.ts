@@ -1,17 +1,33 @@
 // Chrome over CDP - no driver binary, no WebDriver flag. See README.md beside this file.
-let proc = null;
-let ws = null;
+
+/** What a CDP reply carries: `result` for Runtime.evaluate, `data` for a PNG screenshot. */
+type CdpReply = {
+  exceptionDetails?: unknown;
+  result?: { value?: unknown };
+  data?: string;
+};
+
+/** `launch`'s options, every one optional: the defaults are a shared profile and a visible window. */
+type LaunchOptions = {
+  port?: number;
+  profileDir?: string;
+  headless?: boolean;
+  url?: string;
+};
+
+let proc: Deno.ChildProcess | null = null;
+let ws: WebSocket | null = null;
 let msgId = 0;
 const pending = new Map();
 let port = 9333;
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
-function rpc(method, params) {
+function rpc(method: string, params?: Record<string, unknown>): Promise<CdpReply> {
   return new Promise((resolve, reject) => {
     const id = ++msgId;
     pending.set(id, { resolve: resolve, reject: reject });
-    ws.send(JSON.stringify({ id: id, method: method, params: params || {} }));
+    ws!.send(JSON.stringify({ id: id, method: method, params: params || {} }));
     setTimeout(() => {
       if (pending.has(id)) {
         pending.delete(id);
@@ -21,7 +37,7 @@ function rpc(method, params) {
   });
 }
 
-export async function launch(opts) {
+export async function launch(opts?: LaunchOptions) {
   const o = opts || {};
   port = o.port || 9333;
   const prof = o.profileDir || ((Deno.env.get("TMPDIR") || "/tmp") + "/chrome-cdp-profile");
@@ -54,8 +70,8 @@ export async function attach() {
   const t = await r.json();
   ws = new WebSocket(t.webSocketDebuggerUrl);
   await new Promise((res, rej) => {
-    ws.onopen = () => res(true);
-    ws.onerror = () => rej(new Error("websocket refused"));
+    ws!.onopen = () => res(true);
+    ws!.onerror = () => rej(new Error("websocket refused"));
   });
   ws.onmessage = (ev) => {
     const m = JSON.parse(ev.data);
@@ -71,13 +87,13 @@ export async function attach() {
   return t.id || true;
 }
 
-export async function goto(url, settleMs) {
+export async function goto(url: string, settleMs?: number) {
   await rpc("Page.navigate", { url: url });
   await sleep(settleMs || 3000);
   return true;
 }
 
-export async function ev(expression) {
+export async function ev(expression: string) {
   const r = await rpc("Runtime.evaluate", {
     expression: expression,
     awaitPromise: true,
@@ -89,13 +105,13 @@ export async function ev(expression) {
   return r.result ? r.result.value : null;
 }
 
-export async function wait(ms) {
+export async function wait(ms: number) {
   return await ev("new Promise(function(r){setTimeout(function(){r(true)}, " + ms + ")})");
 }
 
-export async function shot(path) {
+export async function shot(path: string) {
   const r = await rpc("Page.captureScreenshot", { format: "png" });
-  await Deno.writeFile(path, Uint8Array.from(atob(r.data), (c) => c.charCodeAt(0)));
+  await Deno.writeFile(path, Uint8Array.from(atob(r.data!), (c) => c.charCodeAt(0)));
   return path;
 }
 
