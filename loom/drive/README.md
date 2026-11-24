@@ -56,7 +56,7 @@ page shows *Google hasn't verified this app* -> Advanced -> Go to <app> (unsafe)
 
 ## 5. Start it, and check what was granted
 
-    await startWorker.mcp("drive", "/Users/<you>/.loom/apps/drive/run");
+    await startWorker.mcp("drive", "$HOME/.loom/apps/drive/run");
     await workers.drive.authListScopes({});          // requested == granted, missingScopes: []
     await workers.drive.search({ query: "invoice" }); // whole Drive, by name
     await workers.drive.readTextFile({ fileId: "..." });

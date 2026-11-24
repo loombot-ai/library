@@ -86,7 +86,7 @@ If the URL is old (they expire), run the command again for a fresh one.
 
 ## 6. Start it from a repl
 
-    const g = await startWorker.mcp("gmail", "/Users/<you>/.loom/apps/gmail/run");
+    const g = await startWorker.mcp("gmail", "$HOME/.loom/apps/gmail/run");
     await workers.gmail.search_emails({ query: "newer_than:7d", maxResults: 5 });
     await workers.gmail.read_email({ id: "1a2066649e9ae05f" });
     await workers.gmail.list_drafts({});
